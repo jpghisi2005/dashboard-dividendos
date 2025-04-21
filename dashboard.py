@@ -13,6 +13,7 @@ st.markdown("---")
 
 # Botão para atualizar dados
 if st.button("🔄 Atualizar Dados"):
+    st.cache_data.clear()  # limpa o cache para buscar novos dados
     st.rerun()
 
 # Seletor de DY mínimo
