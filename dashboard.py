@@ -2,6 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import plotly.express as px
+from datetime import datetime
 
 # Configuração da página
 st.set_page_config(page_title="Dashboard Preço Justo", layout="wide")
@@ -21,16 +22,22 @@ dy_opcoes = [6, 7, 8, 9]
 dy_minimo = st.selectbox("Selecione o DY mínimo desejado (%):", dy_opcoes)
 dy_minimo_decimal = dy_minimo / 100
 
-# Função para calcular o preço máximo sugerido
+# Função ajustada para usar 5 anos corridos
 def calcular_preco_teto(ticker, dy_minimo_decimal):
     ativo = yf.Ticker(ticker)
     try:
-        proventos = ativo.actions['Dividends']
-        proventos.index = proventos.index.tz_convert(None)
-        por_ano = proventos.groupby(proventos.index.year).sum()
-        ult5 = sorted(por_ano.index, reverse=True)[:5]
-        media = por_ano.loc[ult5].mean()
-        return media / dy_minimo_decimal
+        # captura a série de dividendos e remove timezone
+        dividends = ativo.dividends.tz_convert(None)
+        # define corte para 5 anos corridos
+        corte = datetime.now() - pd.DateOffset(years=5)
+        # filtra apenas os dividendos após esse corte
+        dividends_5anos = dividends[dividends.index > corte]
+        # soma total dos dividendos nesse período
+        total_5anos = dividends_5anos.sum()
+        # média anual: soma / 5
+        media_5anos = total_5anos / 5
+        # preço-teto = média anual / DY
+        return media_5anos / dy_minimo_decimal
     except Exception as e:
         print(f"Erro para {ticker}: {e}")
         return None
