@@ -8,26 +8,33 @@ st.set_page_config(page_title="Dashboard Preço Justo", layout="wide")
 
 # Título e subtítulo
 st.markdown("# 📈 Dashboard Interativo de Preço por Dividendos")
-st.markdown("### _Veja o preço atual e o preço máximo sugerido com base nos dividendos de pelo menos 7%_")
+st.markdown("### _Veja o preço atual e o preço máximo sugerido com base nos dividendos de pelo menos 6% a 9%_")
 st.markdown("---")
 
 # Botão para atualizar dados
 if st.button("🔄 Atualizar Dados"):
     st.rerun()
 
+# Seletor de DY mínimo
+dy_opcoes = [6, 7, 8, 9]
+dy_minimo = st.selectbox("Selecione o DY mínimo desejado (%):", dy_opcoes)
+dy_minimo_decimal = dy_minimo / 100
+
 # Função para calcular o preço máximo sugerido
-def calcular_preco_maximo(ticker):
+def calcular_preco_teto(ticker, dy_minimo_decimal):
     ativo = yf.Ticker(ticker)
     try:
-        divs = ativo.dividends.tz_convert(None)
-        por_ano = divs.groupby(divs.index.year).sum()
+        proventos = ativo.actions['Dividends']
+        proventos.index = proventos.index.tz_convert(None)
+        por_ano = proventos.groupby(proventos.index.year).sum()
         ult5 = sorted(por_ano.index, reverse=True)[:5]
         media = por_ano.loc[ult5].mean()
-        return media / 0.07
-    except:
+        return media / dy_minimo_decimal
+    except Exception as e:
+        print(f"Erro para {ticker}: {e}")
         return None
 
-# Lista de ativos
+# Lista de ativos sólidos em dividendos
 tickers = [
     "PETR4.SA", "ITUB4.SA", "CSNA3.SA", "VALE3.SA", "BBAS3.SA", "SAPR4.SA",
     "BBSE3.SA", "VBBR3.SA", "VIVT3.SA", "SANB4.SA", "UNIP6.SA", "AURE3.SA",
@@ -42,7 +49,7 @@ for t in tickers:
         p_at = ac.history(period="1d")['Close'].iloc[-1]
     except:
         p_at = None
-    p_max = calcular_preco_maximo(t)
+    p_max = calcular_preco_teto(t, dy_minimo_decimal)
     if p_at is not None and p_max is not None:
         dados.append({
             "Ticker": t,
@@ -84,12 +91,14 @@ styled = (
 col1, col2 = st.columns([2, 1])
 
 with col1:
-    st.dataframe(styled, use_container_width=True, height=600)  # Ajustado aqui
+    st.dataframe(styled, use_container_width=True, height=600)
 
 with col2:
     st.markdown("### 📝 Legenda")
     st.markdown("- 🟩 **Verde:** Comprar (Preço Atual ≤ Máximo)")
     st.markdown("- 🟥 **Vermelho:** Esperar (Preço Atual > Máximo)")
+    st.markdown("---")
+    st.markdown(f"### 📢 DY Mínimo Selecionado: **{dy_minimo}%**")
 
 st.markdown("---")
 
@@ -99,7 +108,7 @@ fig = px.bar(
     x="Ticker",
     y=["Preço Atual (R$)", "Preço Máximo (R$)"],
     barmode="group",
-    title="Comparativo de Preço Atual vs Máximo",
+    title="Comparativo de Preço Atual vs Preço Máximo (Preço-Teto)",
     color_discrete_sequence=["#0052cc", "#cc0000"]
 )
 fig.update_layout(height=600)
@@ -108,4 +117,5 @@ st.plotly_chart(fig, use_container_width=True)
 st.markdown("---")
 st.markdown("### 📚 Fontes de Dados")
 st.markdown("- Preços e dividendos via [Yahoo Finance](https://finance.yahoo.com/)")
-st.markdown("- Cálculo baseado em retorno de dividendos mínimos de 7% ao ano em uma média dos últimos 5 anos.")
+st.markdown("- 📖 **Cálculo inspirado no método do maior investidor pessoa física do Brasil, Luiz Barsi.**")
+st.markdown("- 🏛️ **As ações apresentadas são consideradas entre as principais ações sólidas para recebimento de dividendos na bolsa brasileira.**")
